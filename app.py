@@ -4,6 +4,7 @@ Backend refactorizado para Envenci
 Endpoints separados para generación de descripción y publicación de productos
 """
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 import google.generativeai as genai
 from PIL import Image
 import firebase_admin
@@ -43,6 +44,7 @@ def configure_gemini():
 db = configure_firebase()
 gemini_model = configure_gemini()
 app = Flask(__name__)
+CORS(app)  # Habilita CORS para todas las rutas
 
 # Helpers
 def decode_image(image_data):
