@@ -13,14 +13,31 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 import base64
 import io
+import os
+import json
+from dotenv import load_dotenv
 
-# Configura Firebase
-cred = credentials.Certificate("firebase-creds.json")
+
+
+# Configuro Firebase usando variables de entorno
+firebase_creds_json = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
+if not firebase_creds_json:
+    raise ValueError("No se encontró la configuración de Firebase en las variables de entorno")
+
+# Convertir el string JSON a un diccionario
+firebase_creds_dict = json.loads(firebase_creds_json)
+
+# Configurar Firebase con las credenciales
+cred = credentials.Certificate(firebase_creds_dict)
 firebase_admin.initialize_app(cred)
 db = firestore.client()
 
-# Configura Gemini
-genai.configure(api_key="AIzaSyDy1yTofHLoQ7AirwUMSp2jWiO6kyYIY48")
+# Configura Gemini con variable de entorno
+gemini_api_key = os.getenv('API_KEY')
+if not gemini_api_key:
+    raise ValueError("No se encontró la API Key de Gemini en las variables de entorno")
+
+genai.configure(api_key=gemini_api_key)
 
 app = Flask(__name__)
 
