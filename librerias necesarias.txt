@@ -1,0 +1,5 @@
+Flask : Framework para crear APIs web.
+google-generativeai : Biblioteca para interactuar con el modelo Gemini de Google.
+Pillow (PIL) : Biblioteca para procesar imágenes.
+firebase-admin : SDK de Firebase para interactuar con Firestore y otros servicios de Firebase.
+base64 e io : Estas son bibliotecas estándar de Python, por lo que no necesitas instalarlas.
