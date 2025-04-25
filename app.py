@@ -27,7 +27,13 @@ def configure_firebase():
     
     firebase_creds_dict = json.loads(firebase_creds_json)
     cred = credentials.Certificate(firebase_creds_dict)
-    firebase_admin.initialize_app(cred)
+    
+    # Especifica el nombre de tu base de datos en la configuración
+    firebase_admin.initialize_app(cred, {
+        'projectId': 'evenci-41812',
+        'databaseURL': 'https://evencidata.firebaseio.com'  # Asegúrate de usar la URL correcta
+    })
+    
     return firestore.client()
 
 # Configuración de Gemini AI
