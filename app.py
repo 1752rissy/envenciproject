@@ -109,15 +109,21 @@ def publish_product():
             'description': request.json['description'],
             'price': price,
             'image': request.json['image'],
-            'created_at': firestore.SERVER_TIMESTAMP,
+            'created_at': firestore.SERVER_TIMESTAMP,  # Timestamp de Firestore
             'status': 'active'
         })
         
+        # Devolver solo el ID del documento (serializable)
         return jsonify({
-            "product_id": doc_id,  # Usamos el ID directamente
+            "product_id": doc_id,  # Solo usamos el ID del documento
             "status": "success"
         })
         
+    except Exception as e:
+        return jsonify({
+            "error": str(e),
+            "status": "error"
+        }), 500
     except Exception as e:
         return jsonify({
             "error": str(e),
