@@ -126,16 +126,22 @@ def publish_product():
         # Obtener la URL pública de la imagen
         image_url = blob.public_url
 
-        # Publicar en Firestore
-        doc_ref, doc_id = db.collection('products').add({
+        # Crear un nuevo documento con un ID generado automáticamente
+        doc_ref = db.collection('products').document()  # Genera un ID automáticamente
+        doc_id = doc_ref.id  # Obtiene el ID del documento
+
+        # Guardar los datos en Firestore
+        doc_ref.set({
             'description': request.json['description'],
             'price': price,
             'image': image_url,  # URL de la imagen en Firebase Storage
+            'created_at': firestore.SERVER_TIMESTAMP,
             'status': 'active'
         })
-        
+
         # Devolver solo el ID del documento (serializable)
         return jsonify({
+            "product_id": doc_id,  # Solo usamos el ID del documento
             "status": "success"
         })
         
