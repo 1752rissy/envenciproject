@@ -130,7 +130,7 @@ def publish_product():
         doc_ref, doc_id = db.collection('products').add({
             'description': request.json['description'],
             'price': price,
-            'image': image_url  # URL de la imagen en Firebase Storage
+            'image': image_url,  # URL de la imagen en Firebase Storage
             'status': 'active'
         })
         
