@@ -28,11 +28,11 @@ def configure_firebase():
     firebase_creds_dict = json.loads(firebase_creds_json)
     cred = credentials.Certificate(firebase_creds_dict)
     
-    # Especifica el nombre de tu base de datos en la configuración
-    firebase_admin.initialize_app(cred, {
-        'projectId': 'evenci-41812',
-        'databaseURL': 'https://evencidata.firebaseio.com'  # Asegúrate de usar la URL correcta
-    })
+    # Verifica si Firebase ya está inicializado
+    if not firebase_admin._apps:
+        firebase_admin.initialize_app(cred, {
+            'projectId': 'evenci-41812'
+        })
     
     return firestore.client()
 
@@ -105,7 +105,7 @@ def publish_product():
             return jsonify({"error": "Precio inválido"}), 400
             
         # Publicar en Firestore
-        doc_ref = db.collection('products').add({
+        doc_ref, doc_id = db.collection('products').add({
             'description': request.json['description'],
             'price': price,
             'image': request.json['image'],
@@ -114,7 +114,7 @@ def publish_product():
         })
         
         return jsonify({
-            "product_id": doc_ref.id,
+            "product_id": doc_id,  # Usamos el ID directamente
             "status": "success"
         })
         
