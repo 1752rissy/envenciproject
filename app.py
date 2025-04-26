@@ -8,11 +8,12 @@ from flask_cors import CORS
 import google.generativeai as genai
 from PIL import Image
 import firebase_admin
-from firebase_admin import credentials, firestore
+from firebase_admin import credentials, firestore, storage
 import base64
 import io
 import os
 import json
+import uuid
 from dotenv import load_dotenv
 
 # Cargar variables de entorno para desarrollo local
@@ -20,7 +21,7 @@ load_dotenv()
 
 # Configuración de Firebase
 def configure_firebase():
-    """Configura y devuelve la conexión a Firestore"""
+    """Configura y devuelve la conexión a Firestore y Storage"""
     firebase_creds_json = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
     if not firebase_creds_json:
         raise ValueError("Configuración de Firebase no encontrada en variables de entorno")
@@ -31,7 +32,8 @@ def configure_firebase():
     # Verifica si Firebase ya está inicializado
     if not firebase_admin._apps:
         firebase_admin.initialize_app(cred, {
-            'projectId': 'evenci-41812'
+            'projectId': 'evenci-41812',
+            'storageBucket': 'evenci-41812-storage'  # Nombre del bucket
         })
     
     return firestore.client()
@@ -48,6 +50,7 @@ def configure_gemini():
 
 # Inicialización de servicios
 db = configure_firebase()
+bucket = storage.bucket()  # Referencia al bucket de Firebase Storage
 gemini_model = configure_gemini()
 app = Flask(__name__)
 CORS(app)  # Habilita CORS para todas las rutas
@@ -103,19 +106,38 @@ def publish_product():
                 raise ValueError("El precio debe ser mayor a 0")
         except ValueError:
             return jsonify({"error": "Precio inválido"}), 400
-            
+
+        # Decodificar la imagen Base64
+        image_data = request.json['image']
+        if not isinstance(image_data, str):
+            return jsonify({"error": "El campo 'image' debe ser una cadena serializable"}), 400
+
+        if image_data.startswith('data:image'):
+            image_data = image_data.split(',')[1]  # Remover prefijo data:image
+        image_bytes = base64.b64decode(image_data)
+
+        # Generar un nombre único para la imagen
+        file_name = f"images/{uuid.uuid4()}.png"
+        blob = bucket.blob(file_name)
+
+        # Subir la imagen al bucket
+        blob.upload_from_string(image_bytes, content_type='image/png')
+
+        # Obtener la URL pública de la imagen
+        image_url = blob.public_url
+
         # Publicar en Firestore
         doc_ref, doc_id = db.collection('products').add({
             'description': request.json['description'],
             'price': price,
-            'image': request.json['image'],  # Asegúrate de que esto sea serializable
-            'created_at': firestore.SERVER_TIMESTAMP,  # Timestamp de Firestore
+            'image': image_url,  # URL de la imagen en Firebase Storage
+            'created_at': firestore.SERVER_TIMESTAMP,
             'status': 'active'
         })
         
         # Devolver solo el ID del documento (serializable)
         return jsonify({
-            "product_id": doc_id,  # Solo usamos el ID del documento
+            "product_id": doc_id,
             "status": "success"
         })
         
