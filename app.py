@@ -108,7 +108,7 @@ def publish_product():
         doc_ref, doc_id = db.collection('products').add({
             'description': request.json['description'],
             'price': price,
-            'image': request.json['image'],
+            'image': request.json['image'],  # Asegúrate de que esto sea serializable
             'created_at': firestore.SERVER_TIMESTAMP,  # Timestamp de Firestore
             'status': 'active'
         })
@@ -120,13 +120,11 @@ def publish_product():
         })
         
     except Exception as e:
+        # Depuración adicional para identificar el origen del error
+        print(f"Error interno: {e}")
         return jsonify({
-            "error": str(e),
-            "status": "error"
-        }), 500
-    except Exception as e:
-        return jsonify({
-            "error": str(e),
+            "error": "Ocurrió un error al procesar la solicitud",
+            "details": str(e),
             "status": "error"
         }), 500
 
