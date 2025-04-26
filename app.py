@@ -136,7 +136,6 @@ def publish_product():
         
         # Devolver solo el ID del documento (serializable)
         return jsonify({
-            "product_id": doc_id,  # Solo usamos el ID del documento
             "status": "success"
         })
         
