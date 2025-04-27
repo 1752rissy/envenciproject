@@ -90,6 +90,35 @@ def generate_description():
             "error": str(e),
             "status": "error"
         }), 500
+    
+@app.route('/api/get-products', methods=['GET'])
+def get_products():
+    """Endpoint para obtener la lista de productos"""
+    try:
+        # Consultar todos los productos en la colección 'products'
+        products_ref = db.collection('products')
+        products = products_ref.order_by('created_at', direction=firestore.Query.DESCENDING).stream()
+
+        # Convertir los documentos en una lista de diccionarios
+        product_list = []
+        for doc in products:
+            product_data = doc.to_dict()
+            product_data['id'] = doc.id  # Añadir el ID del documento
+            product_list.append(product_data)
+
+        return jsonify({
+            "products": product_list,
+            "status": "success"
+        })
+
+    except Exception as e:
+        print(f"Error interno: {e}")
+        return jsonify({
+            "error": "Ocurrió un error al obtener los productos",
+            "details": str(e),
+            "status": "error"
+        }), 500
+    
 
 @app.route('/api/publish-product', methods=['POST'])
 def publish_product():
