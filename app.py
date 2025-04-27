@@ -14,6 +14,7 @@ import io
 import os
 import json
 import uuid
+from datetime import timedelta
 from dotenv import load_dotenv
 
 # Cargar variables de entorno para desarrollo local
@@ -62,6 +63,18 @@ def decode_image(image_data):
         image_data = image_data.split(',')[1]
     return Image.open(io.BytesIO(base64.b64decode(image_data)))
 
+def generate_signed_url(bucket_name, file_name):
+    """Genera una URL firmada para un archivo en Firebase Storage"""
+    blob = bucket.blob(file_name)
+
+    # Generar URL firmada con un tiempo de expiración (por ejemplo, 1 hora)
+    url = blob.generate_signed_url(
+        version="v4",
+        expiration=timedelta(hours=1),  # Tiempo de expiración de la URL
+        method="GET"
+    )
+    return url
+
 # Endpoints
 @app.route('/api/generate-description', methods=['POST'])
 def generate_description():
@@ -90,35 +103,6 @@ def generate_description():
             "error": str(e),
             "status": "error"
         }), 500
-    
-@app.route('/api/get-products', methods=['GET'])
-def get_products():
-    """Endpoint para obtener la lista de productos"""
-    try:
-        # Consultar todos los productos en la colección 'products'
-        products_ref = db.collection('products')
-        products = products_ref.order_by('created_at', direction=firestore.Query.DESCENDING).stream()
-
-        # Convertir los documentos en una lista de diccionarios
-        product_list = []
-        for doc in products:
-            product_data = doc.to_dict()
-            product_data['id'] = doc.id  # Añadir el ID del documento
-            product_list.append(product_data)
-
-        return jsonify({
-            "products": product_list,
-            "status": "success"
-        })
-
-    except Exception as e:
-        print(f"Error interno: {e}")
-        return jsonify({
-            "error": "Ocurrió un error al obtener los productos",
-            "details": str(e),
-            "status": "error"
-        }), 500
-    
 
 @app.route('/api/publish-product', methods=['POST'])
 def publish_product():
@@ -152,12 +136,12 @@ def publish_product():
         # Subir la imagen al bucket
         blob.upload_from_string(image_bytes, content_type='image/png')
 
-        # Obtener la URL pública de la imagen
-        image_url = blob.public_url
+        # Generar una URL firmada
+        image_url = generate_signed_url('evenci-41812-storage', file_name)
 
         # Crear un nuevo documento con un ID generado automáticamente
-        doc_ref = db.collection('products').document()  # Genera un ID automáticamente
-        doc_id = doc_ref.id  # Obtiene el ID del documento
+        doc_ref = db.collection('products').document()
+        doc_id = doc_ref.id
 
         # Guardar los datos en Firestore
         doc_ref.set({
@@ -170,7 +154,7 @@ def publish_product():
 
         # Devolver solo el ID del documento (serializable)
         return jsonify({
-            "product_id": doc_id,  # Solo usamos el ID del documento
+            "product_id": doc_id,
             "status": "success"
         })
         
@@ -179,6 +163,34 @@ def publish_product():
         print(f"Error interno: {e}")
         return jsonify({
             "error": "Ocurrió un error al procesar la solicitud",
+            "details": str(e),
+            "status": "error"
+        }), 500
+
+@app.route('/api/get-products', methods=['GET'])
+def get_products():
+    """Endpoint para obtener la lista de productos"""
+    try:
+        # Consultar todos los productos en la colección 'products'
+        products_ref = db.collection('products')
+        products = products_ref.order_by('created_at', direction=firestore.Query.DESCENDING).stream()
+
+        # Convertir los documentos en una lista de diccionarios
+        product_list = []
+        for doc in products:
+            product_data = doc.to_dict()
+            product_data['id'] = doc.id  # Añadir el ID del documento
+            product_list.append(product_data)
+
+        return jsonify({
+            "products": product_list,
+            "status": "success"
+        })
+
+    except Exception as e:
+        print(f"Error interno: {e}")
+        return jsonify({
+            "error": "Ocurrió un error al obtener los productos",
             "details": str(e),
             "status": "error"
         }), 500
