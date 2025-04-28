@@ -180,6 +180,13 @@ def get_products():
         for doc in products:
             product_data = doc.to_dict()
             product_data['id'] = doc.id  # Añadir el ID del documento
+
+            # Extraer el nombre del archivo de la URL actual
+            image_url = product_data.get('image')
+            if image_url:
+                file_name = image_url.split('/')[-1].split('?')[0]
+                product_data['image'] = generate_signed_url('evenci-41812-storage', file_name)
+
             product_list.append(product_data)
 
         return jsonify({
