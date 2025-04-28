@@ -89,7 +89,7 @@ def generate_description():
         response = gemini_model.generate_content([
             "Genera una descripción detallada para vender este producto online.",
             "Incluye características clave, materiales y condición.",
-            "Sé conciso pero persuasivo (máx 200 caracteres).",
+            "Sé conciso pero persuasivo (máx 200 caracteres). Mostra la descripcion generada directamente sin ningun comentario extra de tu parte.",
             image
         ])
         
