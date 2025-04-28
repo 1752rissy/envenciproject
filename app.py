@@ -79,6 +79,30 @@ def generate_signed_url(bucket_name, file_name):
         print(f"Error al generar la URL firmada para el archivo {file_name}: {e}")
         return None
 
+def classify_product(image, description):
+    """Clasifica el producto y genera etiquetas usando IA"""
+    try:
+        # Analizar la descripción con Gemini
+        response = gemini_model.generate_content([
+            "Clasifica este producto basándote en la descripción y sugiere categorías y etiquetas relevantes.",
+            f"Descripción: {description}",
+            "Proporciona una categoría principal y hasta 5 etiquetas relevantes.",
+            "Formato de respuesta: {'category': '...', 'tags': ['...', '...']}"
+        ])
+
+        # Parsear la respuesta
+        classification = eval(response.text.strip())  # Convertir la respuesta a diccionario
+        category = classification.get('category', 'Otros')
+        tags = classification.get('tags', [])
+
+        # TODO: Integrar análisis visual de la imagen (por ejemplo, Google Vision API)
+        # Por ahora, solo usamos la descripción
+
+        return category, tags
+    except Exception as e:
+        print(f"Error al clasificar el producto: {e}")
+        return "Otros", []
+
 # Endpoints
 @app.route('/api/generate-description', methods=['POST'])
 def generate_description():
@@ -143,15 +167,22 @@ def publish_product():
         # Generar una URL firmada
         image_url = generate_signed_url('evenci-41812-storage', file_name)
 
+        # Clasificar el producto
+        image = decode_image(request.json['image'])
+        description = request.json['description']
+        category, tags = classify_product(image, description)
+
         # Crear un nuevo documento con un ID generado automáticamente
         doc_ref = db.collection('products').document()
         doc_id = doc_ref.id
 
         # Guardar los datos en Firestore
         doc_ref.set({
-            'description': request.json['description'],
+            'description': description,
             'price': price,
             'image_file_name': file_name,  # Guardar solo el nombre del archivo
+            'category': category,  # Categoría generada
+            'tags': tags,  # Etiquetas generadas
             'created_at': firestore.SERVER_TIMESTAMP,
             'status': 'active'
         })
@@ -177,6 +208,16 @@ def get_products():
     try:
         # Consultar todos los productos en la colección 'products'
         products_ref = db.collection('products')
+
+        # Filtrar por categoría y/o etiquetas si se proporcionan en la solicitud
+        category = request.args.get('category')
+        tag = request.args.get('tag')
+
+        if category:
+            products_ref = products_ref.where('category', '==', category)
+        if tag:
+            products_ref = products_ref.where('tags', 'array_contains', tag)
+
         products = products_ref.order_by('created_at', direction=firestore.Query.DESCENDING).stream()
 
         # Convertir los documentos en una lista de diccionarios
