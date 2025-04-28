@@ -65,34 +65,15 @@ def decode_image(image_data):
 
 def generate_signed_url(bucket_name, file_name):
     """Genera una URL firmada para un archivo en Firebase Storage"""
-    try:
-        blob = bucket.blob(file_name)
+    blob = bucket.blob(file_name)
 
-        # Generar URL firmada con un tiempo de expiración (por ejemplo, 1 hora)
-        url = blob.generate_signed_url(
-            version="v4",
-            expiration=timedelta(hours=1),  # Tiempo de expiración de la URL
-            method="GET"
-        )
-        return url
-    except Exception as e:
-        print(f"Error al generar la URL firmada para el archivo {file_name}: {e}")
-        return None
-
-def extract_file_name(image_url):
-    """Extrae el nombre del archivo de una URL de Firebase Storage"""
-    if not image_url:
-        return None
-
-    # Dividir la URL para obtener el nombre del archivo
-    parts = image_url.split('/')
-    if len(parts) < 4:
-        print(f"URL inválida: {image_url}")
-        return None
-
-    file_part = parts[-1]  # Última parte de la URL
-    file_name = file_part.split('?')[0]  # Quitar el token de consulta
-    return file_name
+    # Generar URL firmada con un tiempo de expiración (por ejemplo, 1 hora)
+    url = blob.generate_signed_url(
+        version="v4",
+        expiration=timedelta(hours=1),  # Tiempo de expiración de la URL
+        method="GET"
+    )
+    return url
 
 # Endpoints
 @app.route('/api/generate-description', methods=['POST'])
@@ -199,20 +180,6 @@ def get_products():
         for doc in products:
             product_data = doc.to_dict()
             product_data['id'] = doc.id  # Añadir el ID del documento
-
-            # Extraer el nombre del archivo de la URL actual
-            image_url = product_data.get('image')
-            if image_url:
-                file_name = extract_file_name(image_url)
-                if file_name:
-                    new_image_url = generate_signed_url('evenci-41812-storage', file_name)
-                    if new_image_url:
-                        product_data['image'] = new_image_url
-                    else:
-                        print(f"No se pudo generar la URL firmada para el archivo {file_name}")
-                else:
-                    print(f"No se pudo extraer el nombre del archivo de la URL: {image_url}")
-
             product_list.append(product_data)
 
         return jsonify({
