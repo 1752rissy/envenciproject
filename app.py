@@ -65,15 +65,19 @@ def decode_image(image_data):
 
 def generate_signed_url(bucket_name, file_name):
     """Genera una URL firmada para un archivo en Firebase Storage"""
-    blob = bucket.blob(file_name)
+    try:
+        blob = bucket.blob(file_name)
 
-    # Generar URL firmada con un tiempo de expiración (por ejemplo, 1 hora)
-    url = blob.generate_signed_url(
-        version="v4",
-        expiration=timedelta(hours=1),  # Tiempo de expiración de la URL
-        method="GET"
-    )
-    return url
+        # Generar URL firmada con un tiempo de expiración (por ejemplo, 1 hora)
+        url = blob.generate_signed_url(
+            version="v4",
+            expiration=timedelta(hours=1),  # Tiempo de expiración de la URL
+            method="GET"
+        )
+        return url
+    except Exception as e:
+        print(f"Error al generar la URL firmada para el archivo {file_name}: {e}")
+        return None
 
 # Endpoints
 @app.route('/api/generate-description', methods=['POST'])
@@ -147,7 +151,7 @@ def publish_product():
         doc_ref.set({
             'description': request.json['description'],
             'price': price,
-            'image': image_url,  # URL de la imagen en Firebase Storage
+            'image_file_name': file_name,  # Guardar solo el nombre del archivo
             'created_at': firestore.SERVER_TIMESTAMP,
             'status': 'active'
         })
@@ -180,6 +184,18 @@ def get_products():
         for doc in products:
             product_data = doc.to_dict()
             product_data['id'] = doc.id  # Añadir el ID del documento
+
+            # Regenerar la URL firmada usando el nombre del archivo almacenado
+            file_name = product_data.get('image_file_name')
+            if file_name:
+                new_image_url = generate_signed_url('evenci-41812-storage', file_name)
+                if new_image_url:
+                    product_data['image'] = new_image_url
+                else:
+                    print(f"No se pudo generar la URL firmada para el archivo {file_name}")
+            else:
+                print(f"No se encontró el nombre del archivo para el producto {doc.id}")
+
             product_list.append(product_data)
 
         return jsonify({
