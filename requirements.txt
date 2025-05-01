@@ -5,3 +5,4 @@ pillow==11.2.1
 python-dotenv==1.1.0
 gunicorn==23.0.0
 flask-cors==5.0.1
+google-cloud-vision==3.10.1
