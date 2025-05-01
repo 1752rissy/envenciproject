@@ -80,25 +80,50 @@ def generate_signed_url(bucket_name, file_name):
         return None
 
 def classify_product(image, description):
-    """Clasifica el producto y genera etiquetas usando IA"""
+    """
+    Clasifica el producto y genera etiquetas combinando análisis de texto (Gemini AI)
+    y análisis visual (Google Vision API).
+    """
     try:
-        # Analizar la descripción con Gemini
-        response = gemini_model.generate_content([
+        # --- Paso 1: Análisis de Texto con Gemini AI ---
+        response_text = gemini_model.generate_content([
             "Clasifica este producto basándote en la descripción y sugiere categorías y etiquetas relevantes.",
             f"Descripción: {description}",
             "Proporciona una categoría principal y hasta 5 etiquetas relevantes.",
             "Formato de respuesta: {'category': '...', 'tags': ['...', '...']}"
         ])
 
-        # Parsear la respuesta
-        classification = eval(response.text.strip())  # Convertir la respuesta a diccionario
-        category = classification.get('category', 'Otros')
-        tags = classification.get('tags', [])
+        # Parsear la respuesta de Gemini
+        classification = eval(response_text.text.strip())  # Convertir la respuesta a diccionario
+        category = classification.get('category', 'Otros')  # Categoría sugerida por Gemini
+        tags = classification.get('tags', [])  # Etiquetas sugeridas por Gemini
 
-        # TODO: Integrar análisis visual de la imagen (por ejemplo, Google Vision API)
-        # Por ahora, solo usamos la descripción
+        # --- Paso 2: Análisis Visual con Google Vision API ---
+        client = vision.ImageAnnotatorClient()
 
-        return category, tags
+        # Convertir la imagen PIL a bytes
+        image_bytes = io.BytesIO()
+        image.save(image_bytes, format='PNG')
+        image_content = image_bytes.getvalue()
+
+        # Analizar la imagen con Google Vision API
+        vision_image = vision.Image(content=image_content)
+        response_vision = client.label_detection(image=vision_image)
+
+        # Extraer etiquetas visuales
+        visual_tags = [label.description.lower() for label in response_vision.label_annotations]
+
+        # --- Paso 3: Combinar Resultados ---
+        all_tags = list(set(tags + visual_tags))  # Combinar etiquetas de texto y visuales
+
+        # Determinar la categoría final basada en palabras clave
+        for cat, keywords in CATEGORIES.items():
+            if any(keyword in description.lower() or keyword in visual_tags for keyword in keywords):
+                category = cat
+                break
+
+        return category, all_tags
+
     except Exception as e:
         print(f"Error al clasificar el producto: {e}")
         return "Otros", []
@@ -134,7 +159,6 @@ def generate_description():
 
 @app.route('/api/publish-product', methods=['POST'])
 def publish_product():
-    """Endpoint para publicación de productos en Firestore"""
     try:
         required_fields = ['image', 'description', 'price']
         if not all(field in request.json for field in required_fields):
@@ -156,21 +180,19 @@ def publish_product():
         if image_data.startswith('data:image'):
             image_data = image_data.split(',')[1]  # Remover prefijo data:image
         image_bytes = base64.b64decode(image_data)
+        image = Image.open(io.BytesIO(image_bytes))
 
-        # Generar un nombre único para la imagen
-        file_name = f"images/{uuid.uuid4()}.png"
-        blob = bucket.blob(file_name)
+        # Clasificar el producto
+        description = request.json['description']
+        category, tags = classify_product(image, description)
 
         # Subir la imagen al bucket
+        file_name = f"images/{uuid.uuid4()}.png"
+        blob = bucket.blob(file_name)
         blob.upload_from_string(image_bytes, content_type='image/png')
 
         # Generar una URL firmada
         image_url = generate_signed_url('evenci-41812-storage', file_name)
-
-        # Clasificar el producto
-        image = decode_image(request.json['image'])
-        description = request.json['description']
-        category, tags = classify_product(image, description)
 
         # Crear un nuevo documento con un ID generado automáticamente
         doc_ref = db.collection('products').document()
@@ -192,6 +214,15 @@ def publish_product():
             "product_id": doc_id,
             "status": "success"
         })
+        
+    except Exception as e:
+        # Depuración adicional para identificar el origen del error
+        print(f"Error interno: {e}")
+        return jsonify({
+            "error": "Ocurrió un error al procesar la solicitud",
+            "details": str(e),
+            "status": "error"
+        }), 500
         
     except Exception as e:
         # Depuración adicional para identificar el origen del error
