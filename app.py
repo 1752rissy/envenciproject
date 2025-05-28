@@ -14,6 +14,7 @@ import io
 import os
 import json
 import uuid
+import tempfile
 from datetime import timedelta
 from dotenv import load_dotenv
 from google.cloud import vision  # Importar Google Vision API
@@ -52,7 +53,15 @@ def configure_vision():
     vision_creds_json = os.getenv('GOOGLE_APPLICATION_CREDENTIALS_VISION')
     if not vision_creds_json:
         raise ValueError("Configuración de Vision API no encontrada en variables de entorno")
-    os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = vision_creds_json  # Establecer credenciales para Vision API
+
+    # Crear un archivo temporal
+    with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.json') as temp_file:
+        temp_file.write(vision_creds_json)
+        temp_file_path = temp_file.name
+
+    # Establecer la variable de entorno apuntando al archivo temporal
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = temp_file_path
+
     return vision.ImageAnnotatorClient()
 
 # Inicialización de servicios
